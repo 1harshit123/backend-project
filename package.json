@@ -1,0 +1,15 @@
+{
+  "name": "practice-backend",
+  "version": "1.0.0",
+  "description": "I am making this for learing purposes ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "harshit",
+    "batman"
+  ],
+  "author": "Harshit malviya",
+  "license": "ISC"
+}
