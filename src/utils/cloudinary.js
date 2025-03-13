@@ -41,3 +41,5 @@ const uploadCLoudinary = async (file) => {
   }
 };
 
+export default  uploadCLoudinary;
+
