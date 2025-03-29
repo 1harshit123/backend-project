@@ -2,9 +2,11 @@ import { DB_NAME } from '../constants.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from "../utils/ApiError.js";
 import { User } from "../models/user.Model.js";
-import uploadCLoudinary from "../utils/cloudinary.js";
+import uploadCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
-// Steps of getting register user
+import multer from "multer";
+
+// Steps of getting registered user
 // 1. Getting user details from frontend
 // 2. Validation - not empty
 // 3. Check if user already exists
@@ -15,67 +17,65 @@ import ApiResponse from "../utils/ApiResponse.js";
 // 8. Check for user creation
 
 const registerUser = asyncHandler(async (req, res) => {
-   const { fullname, email, username, password } = req.body;
+   const { fullName, email, username, password } = req.body;
 
-   // Method 1: Checking each field individually (Commented out)
-   // if(fullname == ""){
-   //    throw new ApiError(400, "Fullname is empty")
-   // } else if(email == ""){
-   //    throw new ApiError(400, "email is empty")
-   // } else if(username == ""){
-   //    throw new ApiError(400, "username is empty")
-   // } else if(password == ""){
-   //    throw new ApiError(400, 'password is empty')
-   // }
+   
 
-   // Method 2: Using some() to check for empty fields
-   if ([fullname, username, email, password].some((field) => field?.trim() === "")) {
+   // Validation - Check for empty fields
+   if ([fullName, username, email, password].some((field) => field?.trim() === "")) {
       throw new ApiError(400, 'One or more fields are empty');
    }
 
-   // Additional validation or logic can go here
-   console.log({
-      "fullname": fullname,
-      "email": email
+   // Check if user already exists
+   const existedUser = await User.findOne({
+      $or: [{ username }, { email }]
    });
-   const existedUser = User.findOne({
-      $or: [{username}, {email}]
-   })
-   if(existedUser){
-      throw new ApiError(409, "User with duplicate email or username exist")
-   }
-   const avatarLocalPath = req.files?.avatar[0]?.path
-   const coverImageLocalPath = req.files?.coverImage[0]?.path;
-   // Rest of your logic to create a user, upload files, etc.
-
-   if(!avatarLocalPath){
-      throw new ApiError(400, "Avatar file is required")
+   if (existedUser) {
+      throw new ApiError(409, "User with duplicate email or username exists");
    }
 
-   const avatar = await uploadCLoudinary(avatarLocalPath);
-   const coverImage = await uploadCLoudinary(coverImageLocalPath);
-   if(!avatar){
-      throw new ApiError(400, "Avatar file is required")
+   // Validate file uploads
+   console.log("Files received: ", req.files);
+   const avatarLocalPath = req.files?.avatar?.[0]?.path || null;
+   let coverImageLocalPath;
+   if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+      coverImageLocalPath = req.files.coverImage[0].path;
+   }
+   if (!avatarLocalPath) {
+      throw new ApiError(400, "Avatar file is required");
    }
 
+   // Upload files to Cloudinary
+   const avatar = await uploadCloudinary(avatarLocalPath);
+   const coverImage = await uploadCloudinary(coverImageLocalPath);
+
+   if (!avatar) {
+      throw new ApiError(400, "Failed to upload avatar to Cloudinary");
+   }
+
+   // Create user in the database
    const user = await User.create({
-      fullname,
-      avatar: avatar.url,
+      fullName,
+      avatar: avatar?.url || "",
       coverImage: coverImage?.url || "",
       email,
       password,
       username: username.toLowerCase()
+   });
 
-   })
+   // Fetch the created user without password and refreshToken fields
    const createdUser = await User.findById(user._id).select(
       "-password -refreshToken"
-   )
-   if(!createdUser){
-      throw new ApiError(500, "Something went wrong while creating user")
+   );
+
+   if (!createdUser) {
+      throw new ApiError(500, "Something went wrong while creating the user");
    }
+
    return res.status(201).json(
       new ApiResponse(200, createdUser, "User registered successfully")
-   )
+   );
 });
 
+// Route handler
 export default registerUser;
