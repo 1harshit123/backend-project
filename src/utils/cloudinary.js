@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
+import path from "path";
 
 cloudinary.config({
   cloud_name: process.env.MY_CLOUD_NAME,
@@ -7,24 +8,38 @@ cloudinary.config({
   api_secret: process.env.MY_CLOUD_API_SECRET,
 });
 
-const uploadCloudinary = async (file) => {
+const uploadCloudinary = async (filePath) => {
   try {
-    if (!file) return null;
+    if (!filePath || !fs.existsSync(filePath)) {
+      console.error("File does not exist at path:", filePath);
+      return null;
+    }
 
-    const response = await cloudinary.uploader.upload(file, {
-      resource_type: "auto",
+    console.log("Uploading to Cloudinary from path:", filePath);
+
+    const response = await cloudinary.uploader.upload(path.resolve(filePath), {
+      resource_type: "image",
     });
-    fs.unlinkSync(file) // Log the uploaded file URL
+
+    console.log("Upload Success:", response.secure_url);
+
+    // Delete file after upload
+    fs.unlinkSync(filePath);
+
     return response;
   } catch (error) {
+    console.error("Cloudinary Upload Failed:");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Full error:", error);
+
+    // Cleanup
     try {
-      if (fs.existsSync(file)) {
-        fs.unlinkSync(file); // Delete the locally saved file on the server
-      }
-    } catch (deleteError) {
-      console.error("Error deleting file:", deleteError.message);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (e) {
+      console.error(" Failed to delete file:", e.message);
     }
-    console.error("Upload failed:", error.message); // Log the error
+
     return null;
   }
 };
